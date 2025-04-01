@@ -15,7 +15,7 @@
       
         <!-- 类别选择 -->
         <div class="Type-container">
-          <van-tabs v-model:active="activeType" swipeable @click="onTypeChange">
+          <van-tabs v-model="activeType" swipeable @click="onTypeChange">
             <van-tab v-for="Type in typeList" :key="Type.id" :title="Type.name"></van-tab>
           </van-tabs>
         </div>
@@ -58,99 +58,98 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue';
 import { showToast } from 'vant';
 import { getWorks } from '@/api/workApi';
 
-export default {
-  name: 'HomeWork',
-  data() {
-    return {
-      searchText: "",
-      pageNumber: 1,
-      loading: false,
-      activeType: 0,
-      typeList: [
-        { id: 0, name: '全部' },
-        { id: 1, name: '游戏地图' },
-        { id: 2, name: '功能玩法' },
-        { id: 3, name: '材质光影' },
-        { id: 4, name: '皮肤' }
-      ],
-      carouselItems: [
-        { id: 1, image: require('@/assets/swipperTestImage.png'), name: '轮播图1' },
-        { id: 2, image: require('@/assets/swipperTestImage.png'), name: '轮播图2' },
-        { id: 3, image: require('@/assets/swipperTestImage.png'), name: '轮播图3' },
-      ],
-      works: [],
-      hasMore: true,
-      throttleTimer: null
+const searchText = ref("");
+const pageNumber = ref(1);
+const loading = ref(false);
+const activeType = ref(0);
+const typeList = reactive([
+  { id: 0, name: '全部' },
+  { id: 1, name: '游戏地图' },
+  { id: 2, name: '功能玩法' },
+  { id: 3, name: '材质光影' },
+  { id: 4, name: '皮肤' }
+]);
+const carouselItems = reactive([
+  { id: 1, image: require('@/assets/swipperTestImage.png'), name: '轮播图1' },
+  { id: 2, image: require('@/assets/swipperTestImage.png'), name: '轮播图2' },
+  { id: 3, image: require('@/assets/swipperTestImage.png'), name: '轮播图3' },
+]);
+const works = reactive([]);
+const hasMore = ref(true);
+const throttleTimer = ref(null);
+
+const fetchWorks = () => {
+  let requestParams = {
+    pageSize: 5,
+    pageNumber: pageNumber.value,
+    search: searchText.value,
+    type: activeType.value == 0 ? null : typeList[activeType.value].name
+  };
+  loading.value = true;
+  getWorks(requestParams)
+    .then(response => {
+      works.push(...response.data.rows);
+      hasMore.value = response.data.rows.length >= requestParams.pageSize;
+      pageNumber.value++;
+      loading.value = false;
+    })
+    .catch(error => {
+      showToast('获取作品列表失败');
+      console.error(error);
+    });
+};
+
+const handleScroll = () => {
+  if (throttleTimer.value) return;
+  
+  throttleTimer.value = setTimeout(() => {
+    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+    const windowHeight = document.documentElement.clientHeight || document.body.clientHeight;
+    const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
+    
+    if (scrollTop + windowHeight >= scrollHeight - 100 && !loading.value && hasMore.value) {
+      fetchWorks();
     }
-  },
-  mounted() {
-    this.fetchWorks();
-    window.addEventListener('scroll', this.handleScroll, { passive: true });
-  },
-  beforeUnmount() {
-    window.removeEventListener('scroll', this.handleScroll, { passive: true });
-  },
-  methods: {
-    handleScroll() {
-      if (this.throttleTimer) return;
-      
-      this.throttleTimer = setTimeout(() => {
-        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-        const windowHeight = document.documentElement.clientHeight || document.body.clientHeight;
-        const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
-        
-        if (scrollTop + windowHeight >= scrollHeight - 100 && !this.loading && this.hasMore) {
-          this.fetchWorks();
-        }
-        this.throttleTimer = null;
-      }, 500);
-    },
-    onSearch() {
-      this.works = [];
-      this.pageNumber = 1;
-      this.fetchWorks();
-    },
-    onTypeChange() {
-      this.works = [];
-      this.pageNumber = 1;
-      console.log(this.activeType)
-      this.fetchWorks();
-    },
-    fetchWorks() {
-      let requestParams = {
-        pageSize: 5,
-        pageNumber: this.pageNumber,
-        search: this.searchText,
-        type: this.activeType == 0 ? null : this.typeList[this.activeType].name
-      };
-      this.loading = true;
-      getWorks(requestParams)
-        .then(response => {
-          this.works = [...this.works, ...response.data.rows];
-          this.hasMore = response.data.rows.length >= requestParams.pageSize;
-          this.pageNumber++;
-          this.loading = false;
-        })
-        .catch(error => {
-          showToast('获取作品列表失败');
-          console.error(error);
-        });
-    },
-    copyWorkCode(code) {
-      navigator.clipboard.writeText(code)
-        .then(() => {
-          showToast('复制成功');
-        })
-        .catch(() => {
-          showToast('复制失败');
-        });
-    }
-  }
-}
+    throttleTimer.value = null;
+  }, 500);
+};
+
+const onSearch = () => {
+  works.splice(0, works.length);
+  pageNumber.value = 1;
+  fetchWorks();
+};
+
+const onTypeChange = () => {
+  works.splice(0, works.length);
+  pageNumber.value = 1;
+  console.log(activeType.value);
+  fetchWorks();
+};
+
+const copyWorkCode = (code) => {
+  navigator.clipboard.writeText(code)
+    .then(() => {
+      showToast('复制成功');
+    })
+    .catch(() => {
+      showToast('复制失败');
+    });
+};
+
+onMounted(() => {
+  fetchWorks();
+  window.addEventListener('scroll', handleScroll, { passive: true });
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScroll, { passive: true });
+});
 </script>
 
 <style scoped>
@@ -225,6 +224,10 @@ export default {
   margin: 0.1rem 0 0.625rem 0;
   font-size: 1.2rem;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 16rem;
 }
 
 .work-info p {

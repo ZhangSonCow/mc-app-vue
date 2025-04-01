@@ -2,10 +2,7 @@
   <div>社区</div>
 </template>
 
-<script>
-export default {
-  name: 'ChatArea'
-}
+<script setup>
 </script>
 
 <style scoped>

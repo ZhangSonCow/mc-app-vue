@@ -1,8 +1,10 @@
 <template>
-  <BottomNavigation v-if="showNavigation" />
-  <main class="main-content" :style="{ paddingBottom: showNavigation ? '60px' : '0' }">
-    <router-view></router-view>
-  </main>
+  <div>
+    <BottomNavigation v-if="showNavigation" />
+    <main class="main-content" :style="{ paddingBottom: showNavigation ? '60px' : '0' }">
+      <router-view></router-view>
+    </main>
+  </div>
 </template>
 
 <script>
